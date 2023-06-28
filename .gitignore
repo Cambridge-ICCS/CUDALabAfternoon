@@ -1,0 +1,16 @@
+.ipynb_checkpoints
+*.exe
+*.out
+*.app
+*.o
+*.obj
+*.exp
+*.lib
+*.a
+*.i
+*.ii
+*.gpu
+*.ptx
+*.cubin
+*.fatbin
+output.ppm
