@@ -16,7 +16,7 @@ void output_image_file(uchar4* image);
 void input_image_file(char* filename, uchar4* image);
 void checkCUDAError(const char *msg);
 
-typedef enum { STARTING_CODE, EXERCISE_01, EXERCISE_02, EXERCISE_03, EXERCISE_04 } EXERCISE;
+typedef enum { STARTING_CODE, EXERCISE_01, EXERCISE_02, EXERCISE_03 } EXERCISE;
 
 //The exercise mode can be set via pre-processor or by setting the `exercise` variable 
 #ifdef EXERCISE_MODE
@@ -27,10 +27,10 @@ EXERCISE exercise = STARTING_CODE;
 
 __global__ void image_blur_columns(uchar4 *image, uchar4 *image_output) {
 
-	// map from threadIdx/BlockIdx to pixel row position
+	// map from threadIdx/BlockIdx to pixel column position
 	int y = threadIdx.x + blockIdx.x * blockDim.x;
 
-	//loop over columns
+	//loop over rows
 	for (int x = 0; x < IMAGE_DIM; x++){
 
 		//calculate the input/output location
@@ -70,6 +70,94 @@ __global__ void image_blur_columns(uchar4 *image, uchar4 *image_output) {
 	}
 }
 
+__global__ void image_blur_rows(uchar4 *image, uchar4 *image_output) {
+	
+	// map from threadIdx/BlockIdx to pixel row position
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+
+	//loop over columns
+	for (int y = 0; y < IMAGE_DIM; y++){
+
+		//calculate the input/output location
+		int output_offset = x + y * IMAGE_DIM;
+		uchar4 pixel;
+		float4 average = make_float4(0, 0, 0, 0);
+
+		for (int i = -BOX_SIZE; i <= BOX_SIZE; i++){
+			for (int j = -BOX_SIZE; j <= BOX_SIZE; j++){
+				int x_offset = x + i;
+				int y_offset = y + j;
+				//bounds check
+				if ((x_offset < 0) || (x_offset >= IMAGE_DIM) || (y_offset < 0) || (y_offset >= IMAGE_DIM)){
+					pixel = make_uchar4(0, 0, 0, 0);
+				}
+				else{
+					//load pixel neighbour
+					int offset = x_offset + y_offset * IMAGE_DIM;
+					pixel = image[offset];
+				}
+
+				//sum values
+				average.x += pixel.x;
+				average.y += pixel.y;
+				average.z += pixel.z;
+			}
+		}
+		//calculate average
+		average.x /= (float)NUMBER_OF_SAMPLES;
+		average.y /= (float)NUMBER_OF_SAMPLES;
+		average.z /= (float)NUMBER_OF_SAMPLES;
+
+		image_output[output_offset].x = (unsigned char)average.x;
+		image_output[output_offset].y = (unsigned char)average.y;
+		image_output[output_offset].z = (unsigned char)average.z;
+		image_output[output_offset].w = 255;
+	}
+}
+
+
+
+__global__ void image_blur_2d(uchar4 *image, uchar4 *image_output) {
+	// map from threadIdx/BlockIdx to pixel position
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int output_offset = x + y * IMAGE_DIM;
+	uchar4 pixel;
+	float4 average = make_float4(0, 0, 0, 0);
+
+	for (int i = -BOX_SIZE; i <= BOX_SIZE; i++){
+		for (int j = -BOX_SIZE; j <= BOX_SIZE; j++){
+			int x_offset = x + i;
+			int y_offset = y + j;
+			//bounds check
+			if ((x_offset < 0) || (x_offset >= IMAGE_DIM) || (y_offset < 0) || (y_offset >= IMAGE_DIM)){
+				pixel = make_uchar4(0, 0, 0, 0);
+			}
+			else{
+				//load pixel neighbour
+				int offset = x_offset + y_offset * IMAGE_DIM;
+				pixel = image[offset];
+			}
+
+			//sum values
+			average.x += pixel.x;
+			average.y += pixel.y;
+			average.z += pixel.z;
+		}
+	}
+	//calculate average
+	average.x /= (float)NUMBER_OF_SAMPLES;
+	average.y /= (float)NUMBER_OF_SAMPLES;
+	average.z /= (float)NUMBER_OF_SAMPLES;
+
+	image_output[output_offset].x = (unsigned char)average.x;
+	image_output[output_offset].y = (unsigned char)average.y;
+	image_output[output_offset].z = (unsigned char)average.z;
+	image_output[output_offset].w = 255;
+}
+
+
+
 /* Host code */
 
 int main(void) {
@@ -96,50 +184,80 @@ int main(void) {
 
 	switch (exercise){
 	case(STARTING_CODE) : {
-							  printf("Exercise Mode: Starting Code.\n");
-                              // 1d by row
-							  cudaEventRecord(start, 0);
-							  dim3    blocksPerGrid(IMAGE_DIM / 16, 1);
-							  dim3    threadsPerBlock(16, 1);
-							  // loop for number of iterations
-							  for (i = 0; i < ITERATIONS; i++){
-								  // copy image to device memory
-								  cudaMemcpy(d_image, h_image, image_size, cudaMemcpyHostToDevice);
-								  checkCUDAError("CUDA memcpy to device");
+								printf("Exercise Mode: Starting Code.\n");
+								// 1d by row
+								cudaEventRecord(start, 0);
+								dim3    blocksPerGrid(IMAGE_DIM / 16, 1);
+								dim3    threadsPerBlock(16, 1);
+								// loop for number of iterations
+								for (i = 0; i < ITERATIONS; i++){
+									// copy image to device memory
+									cudaMemcpy(d_image, h_image, image_size, cudaMemcpyHostToDevice);
+									checkCUDAError("CUDA memcpy to device");
 
-								  image_blur_columns << <blocksPerGrid, threadsPerBlock >> >(d_image, d_image_output);
-								  checkCUDAError("kernel starting code implementation");
+									image_blur_columns << <blocksPerGrid, threadsPerBlock >> >(d_image, d_image_output);
+									checkCUDAError("kernel starting code implementation");
 
-								  //copy results back to host
-								  cudaMemcpy(h_image, d_image_output, image_size, cudaMemcpyDeviceToHost);
-								  checkCUDAError("CUDA memcpy to host");
+									//copy results back to host
+									cudaMemcpy(h_image, d_image_output, image_size, cudaMemcpyDeviceToHost);
+									checkCUDAError("CUDA memcpy to host");
 
-							  }
-							  cudaEventRecord(stop, 0);
-							  cudaEventSynchronize(stop);
-							  cudaEventElapsedTime(&ms.x, start, stop);
-							  break;
+								}
+								cudaEventRecord(stop, 0);
+								cudaEventSynchronize(stop);
+								cudaEventElapsedTime(&ms.x, start, stop);
+								break;
 	}
 	case(EXERCISE_01) : {
-                            printf("Exercise Mode: Exercise 01.\n");
+								printf("Exercise Mode: Exercise 01.\n");
+								cudaEventRecord(start, 0);
+								dim3    blocksPerGrid(IMAGE_DIM / 16, 1);
+								dim3    threadsPerBlock(16, 1);
+
+								// copy image to device memory
+								cudaMemcpy(d_image, h_image, image_size, cudaMemcpyHostToDevice);
+								checkCUDAError("CUDA memcpy to device");
+
+								// loop for number of iterations
+								for (i = 0; i < ITERATIONS; i++){
+									image_blur_columns << <blocksPerGrid, threadsPerBlock >> >(d_image, d_image_output);
+									checkCUDAError("kernel column implementation");
+									d_image_temp = d_image;
+									d_image = d_image_output;
+									d_image_output = d_image_temp;
+								}
+
+								//copy results back to host (careful of the swapped pointers)
+								cudaMemcpy(h_image, d_image, image_size, cudaMemcpyDeviceToHost);
+								checkCUDAError("CUDA memcpy to host");
+
+								cudaEventRecord(stop, 0);
+								cudaEventSynchronize(stop);
+								cudaEventElapsedTime(&ms.x, start, stop);
+								break;
+	}
+	case(EXERCISE_02) : {
+							printf("Exercise Mode: Exercise 02.\n");
 							cudaEventRecord(start, 0);
 							dim3    blocksPerGrid(IMAGE_DIM / 16, 1);
 							dim3    threadsPerBlock(16, 1);
 
-							//TODO: Complete exercise 01
+							// copy image to device memory
+							cudaMemcpy(d_image, h_image, image_size, cudaMemcpyHostToDevice);
+							checkCUDAError("CUDA memcpy to device");
 
-							cudaEventRecord(stop, 0);
-							cudaEventSynchronize(stop);
-							cudaEventElapsedTime(&ms.x, start, stop);
-							break;
-	}
-	case(EXERCISE_02) : {
-							printf("Exercise Mode: Exercise 02.\n");
-                            cudaEventRecord(start, 0);
-							dim3    blocksPerGrid(IMAGE_DIM / 16, 1);
-							dim3    threadsPerBlock(16, 1);
+							// loop for number of iterations
+							for (i = 0; i < ITERATIONS; i++){
+								image_blur_rows << <blocksPerGrid, threadsPerBlock >> >(d_image, d_image_output);
+								checkCUDAError("kernel row implementation");
+								d_image_temp = d_image;
+								d_image = d_image_output;
+								d_image_output = d_image_temp;
+							}
 
-							//TODO: Complete exercise 02
+							//copy results back to host (careful of the swapped pointers)
+							cudaMemcpy(h_image, d_image, image_size, cudaMemcpyDeviceToHost);
+							checkCUDAError("CUDA memcpy to host");
 
 							cudaEventRecord(stop, 0);
 							cudaEventSynchronize(stop);
@@ -148,11 +266,26 @@ int main(void) {
 	}
 	case(EXERCISE_03) : {
 							printf("Exercise Mode: Exercise 03.\n");
-                            cudaEventRecord(start, 0);
+							cudaEventRecord(start, 0);
 							dim3    blocksPerGrid(IMAGE_DIM / 16, IMAGE_DIM / 16);
 							dim3    threadsPerBlock(16, 16);
 
-							//TODO: Complete exercise 03
+							// copy image to device memory
+							cudaMemcpy(d_image, h_image, image_size, cudaMemcpyHostToDevice);
+							checkCUDAError("CUDA memcpy to device");
+
+							// loop for number of iterations
+							for (i = 0; i < ITERATIONS; i++){
+								image_blur_2d<< <blocksPerGrid, threadsPerBlock >> >(d_image, d_image_output);
+								checkCUDAError("kernel 2d implementation");
+								d_image_temp = d_image;
+								d_image = d_image_output;
+								d_image_output = d_image_temp;
+							}
+
+							//copy results back to host (careful of the swapped pointers)
+							cudaMemcpy(h_image, d_image, image_size, cudaMemcpyDeviceToHost);
+							checkCUDAError("CUDA memcpy to host");
 
 							cudaEventRecord(stop, 0);
 							cudaEventSynchronize(stop);
