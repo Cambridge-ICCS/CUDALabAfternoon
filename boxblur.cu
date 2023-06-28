@@ -13,7 +13,7 @@
 #define NUMBER_OF_SAMPLES (((BOX_SIZE*2)+1)*((BOX_SIZE*2)+1))
 
 void output_image_file(uchar4* image);
-void input_image_file(char* filename, uchar4* image);
+void input_image_file(const char* filename, uchar4* image);
 void checkCUDAError(const char *msg);
 
 typedef enum { STARTING_CODE, EXERCISE_01, EXERCISE_02, EXERCISE_03 } EXERCISE;
@@ -201,7 +201,7 @@ void output_image_file(uchar4* image)
 	fclose(f);
 }
 
-void input_image_file(char* filename, uchar4* image)
+void input_image_file(const char* filename, uchar4* image)
 {
 	FILE *f; //input file handle
 	char temp[256];
@@ -213,7 +213,7 @@ void input_image_file(char* filename, uchar4* image)
 		fprintf(stderr, "Error opening 'input.ppm' input file\n");
 		exit(1);
 	}
-	fscanf(f, "%s\n", &temp);
+	fscanf(f, "%s\n", (char*)&temp);
 	fscanf(f, "%d %d\n", &x, &y);
 	fscanf(f, "%d\n", &s);
 	if ((x != y) && (x != IMAGE_DIM)){
