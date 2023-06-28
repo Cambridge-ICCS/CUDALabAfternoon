@@ -16,7 +16,7 @@ void output_image_file(uchar4* image);
 void input_image_file(char* filename, uchar4* image);
 void checkCUDAError(const char *msg);
 
-typedef enum { STARTING_CODE, EXERCISE_01, EXERCISE_02, EXERCISE_03, EXERCISE_04 } EXERCISE;
+typedef enum { STARTING_CODE, EXERCISE_01, EXERCISE_02, EXERCISE_03 } EXERCISE;
 
 //The exercise mode can be set via pre-processor or by setting the `exercise` variable 
 #ifdef EXERCISE_MODE
