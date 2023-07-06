@@ -4,7 +4,7 @@ Accelerators such as GPUs are prevalent both within personal computing as well a
 
 This introductory lab is designed to follow lectures which provide some insight into GPU architectures and insight into developing GPU code using CUDA.
 
-To get started you will need a Python environment with the `jupyter-lab` package installed. This lab also requires the python `pillow` image library. The preferred method is to install these packages inside a virtual environment.
+To get started you will need a Python environment with the `jupyterlab` package installed. The preferred method is to install this inside a [virtual environment](https://realpython.com/python-virtual-environments-a-primer/).
 
 You can then launch the notebook using
 
