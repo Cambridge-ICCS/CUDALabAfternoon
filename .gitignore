@@ -14,3 +14,4 @@
 *.cubin
 *.fatbin
 output.ppm
+solution.cu
